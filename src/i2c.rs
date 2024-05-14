@@ -15,7 +15,7 @@ use embedded_hal_async::i2c::I2c as AsyncI2c;
 #[cfg(feature = "async")]
 use super::{AsyncBME280Common, AsyncInterface};
 #[cfg(feature = "sync")]
-use super::{BME280Common, Interface};
+use super::{BME280Common, Interface, SensorMode};
 use super::{
     Configuration, Error, IIRFilter, Measurements, Oversampling, BME280_H_CALIB_DATA_LEN,
     BME280_P_T_CALIB_DATA_LEN, BME280_P_T_H_DATA_LEN,
@@ -105,6 +105,17 @@ where
         delay: &mut D,
     ) -> Result<Measurements<I2C::Error>, Error<I2C::Error>> {
         self.common.measure(delay).await
+    }
+    /// Captures and processes sensor data for temperature, pressure, and humidity
+    pub async fn set_normal_mode<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<(), Error<I2C::Error>> {
+        self.common.set_normal_mode(delay).await
+    }
+    /// asdf
+    pub async fn mode(&mut self) -> Result<SensorMode, Error<I2C::Error>> {
+        self.common.mode()
     }
 }
 

@@ -682,13 +682,28 @@ where
             .await
     }
 
+    async fn set_normal_mode<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<(), Error<I::Error>> {
+        self.set_mode(BME280_NORMAL_MODE, delay).await?;
+        let config_data = self.interface.read_register(BME280_CONFIG_ADDR).await?;
+
+        let data = set_bits!(config_data, 0b111 << 5, 5, 0);
+
+        self.interface
+            .write_register(BME280_CONFIG_ADDR, data)
+            .await?;
+
+        Ok(())
+    }
     /// Captures and processes sensor data for temperature, pressure, and humidity
     async fn measure<D: AsyncDelayNs>(
         &mut self,
         delay: &mut D,
     ) -> Result<Measurements<I::Error>, Error<I::Error>> {
-        self.forced(delay).await?;
         delay.delay_ms(40).await;
+        // self.forced(delay).await?;
         let measurements = self.interface.read_data(BME280_DATA_ADDR).await?;
         match self.calibration.as_mut() {
             Some(calibration) => {
