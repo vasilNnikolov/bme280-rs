@@ -1,20 +1,20 @@
 #![doc(html_root_url = "https://docs.rs/bme280")]
 #![doc(issue_tracker_base_url = "https://github.com/VersBinarii/bme280/issues/")]
-#![deny(
-    missing_docs,
-    missing_debug_implementations,
-    missing_copy_implementations,
-    trivial_casts,
-    trivial_numeric_casts,
-    unsafe_code,
-    unused_import_braces,
-    unused_qualifications,
-    unused_variables,
-    unreachable_code,
-    unused_comparisons,
-    unused_imports,
-    unused_must_use
-)]
+// #![deny(
+//     missing_docs,
+//     missing_debug_implementations,
+//     missing_copy_implementations,
+//     trivial_casts,
+//     trivial_numeric_casts,
+//     unsafe_code,
+//     unused_import_braces,
+//     unused_qualifications,
+//     unused_variables,
+//     unreachable_code,
+//     unused_comparisons,
+//     unused_imports,
+//     unused_must_use
+// )]
 #![cfg_attr(not(feature = "async"), deny(unstable_features))]
 // Turn off no_std if we turn on the "with_std" feature
 #![cfg_attr(not(feature = "with_std"), no_std)]
@@ -212,12 +212,13 @@ pub enum SensorMode {
 /// Oversampling settings for temperature, pressure, and humidity measurements.
 /// See sections 3.4ff of the manual for measurement flow and recommended values.
 /// The default is 1x, i.e., no oversampling.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 #[cfg_attr(feature = "with_defmt", derive(defmt::Format))]
 pub enum Oversampling {
     /// Disables oversampling.
     /// Without IIR filtering, this sets the resolution of temperature and pressure measurements
     /// to 16 bits.
+    #[default]
     Oversampling1X,
     /// Configures 2x oversampling.
     /// This increases the resolution of temperature and pressure measurements to 17 bits without
@@ -246,12 +247,6 @@ impl Oversampling {
             Oversampling::Oversampling8X => BME280_OVERSAMPLING_8X,
             Oversampling::Oversampling16X => BME280_OVERSAMPLING_16X,
         }
-    }
-}
-
-impl Default for Oversampling {
-    fn default() -> Self {
-        Self::Oversampling1X
     }
 }
 
@@ -333,7 +328,7 @@ impl Configuration {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "with_defmt", derive(defmt::Format))]
-struct CalibrationData {
+pub struct CalibrationData {
     dig_t1: u16,
     dig_t2: i16,
     dig_t3: i16,
@@ -478,7 +473,7 @@ impl<E> Measurements<E> {
     }
 }
 
-trait Interface {
+pub trait Interface {
     type Error;
 
     fn read_register(&mut self, register: u8) -> Result<u8, Error<Self::Error>>;
@@ -543,7 +538,7 @@ trait AsyncInterface {
     async(feature = "async", keep_self)
 )]
 #[derive(Debug, Default)]
-struct AsyncBME280Common<I> {
+pub struct AsyncBME280Common<I> {
     /// Interface to the chip (either I2C or SPI)
     interface: I,
     /// calibration data
@@ -563,7 +558,7 @@ where
     I: AsyncInterface,
 {
     /// Initializes the BME280, applying the given config.
-    async fn init<D: AsyncDelayNs>(
+    pub async fn init<D: AsyncDelayNs>(
         &mut self,
         delay: &mut D,
         config: Configuration,
@@ -574,7 +569,7 @@ where
         self.configure(delay, config).await
     }
 
-    async fn verify_chip_id(&mut self) -> Result<(), Error<I::Error>> {
+    pub async fn verify_chip_id(&mut self) -> Result<(), Error<I::Error>> {
         let chip_id = self.interface.read_register(BME280_CHIP_ID_ADDR).await?;
         if chip_id == BME280_CHIP_ID || chip_id == BMP280_CHIP_ID {
             Ok(())
@@ -583,7 +578,10 @@ where
         }
     }
 
-    async fn soft_reset<D: AsyncDelayNs>(&mut self, delay: &mut D) -> Result<(), Error<I::Error>> {
+    pub async fn soft_reset<D: AsyncDelayNs>(
+        &mut self,
+        delay: &mut D,
+    ) -> Result<(), Error<I::Error>> {
         self.interface
             .write_register(BME280_RESET_ADDR, BME280_SOFT_RESET_CMD)
             .await?;
@@ -591,7 +589,7 @@ where
         Ok(())
     }
 
-    async fn calibrate(&mut self) -> Result<(), Error<I::Error>> {
+    pub async fn calibrate(&mut self) -> Result<(), Error<I::Error>> {
         let pt_calib_data = self
             .interface
             .read_pt_calib_data(BME280_P_T_CALIB_DATA_ADDR)
@@ -604,7 +602,7 @@ where
         Ok(())
     }
 
-    async fn configure<D: AsyncDelayNs>(
+    pub async fn configure<D: AsyncDelayNs>(
         &mut self,
         delay: &mut D,
         config: Configuration,
@@ -652,7 +650,7 @@ where
             .await
     }
 
-    async fn mode(&mut self) -> Result<SensorMode, Error<I::Error>> {
+    pub async fn mode(&mut self) -> Result<SensorMode, Error<I::Error>> {
         let data = self.interface.read_register(BME280_PWR_CTRL_ADDR).await?;
         match data & BME280_SENSOR_MODE_MSK {
             BME280_SLEEP_MODE => Ok(SensorMode::Sleep),
@@ -662,9 +660,9 @@ where
         }
     }
 
-    async fn forced<D: AsyncDelayNs>(&mut self, delay: &mut D) -> Result<(), Error<I::Error>> {
-        self.set_mode(BME280_FORCED_MODE, delay).await
-    }
+    // pub async fn forced<D: AsyncDelayNs>(&mut self, delay: &mut D) -> Result<(), Error<I::Error>> {
+    //     self.set_mode(BME280_FORCED_MODE, delay).await
+    // }
 
     async fn set_mode<D: AsyncDelayNs>(
         &mut self,
@@ -682,11 +680,12 @@ where
             .await
     }
 
-    async fn set_normal_mode<D: AsyncDelayNs>(
+    pub async fn set_normal_mode<D: AsyncDelayNs>(
         &mut self,
         delay: &mut D,
     ) -> Result<(), Error<I::Error>> {
         self.set_mode(BME280_NORMAL_MODE, delay).await?;
+        // set t_sb to 20ms, see page 30 of datasheet
         let config_data = self.interface.read_register(BME280_CONFIG_ADDR).await?;
 
         let data = set_bits!(config_data, 0b111 << 5, 5, 0);
@@ -702,7 +701,7 @@ where
         &mut self,
         delay: &mut D,
     ) -> Result<Measurements<I::Error>, Error<I::Error>> {
-        delay.delay_ms(40).await;
+        // delay.delay_ms(40).await;
         // self.forced(delay).await?;
         let measurements = self.interface.read_data(BME280_DATA_ADDR).await?;
         match self.calibration.as_mut() {

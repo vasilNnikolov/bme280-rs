@@ -35,7 +35,7 @@ const BME280_I2C_ADDR_SECONDARY: u8 = 0x77;
 )]
 #[derive(Debug, Default)]
 pub struct AsyncBME280<I2C> {
-    common: AsyncBME280Common<I2CInterface<I2C>>,
+    pub common: AsyncBME280Common<I2CInterface<I2C>>,
 }
 
 #[maybe_async_cfg::maybe(
@@ -121,7 +121,7 @@ where
 
 /// Register access functions for I2C
 #[derive(Debug, Default)]
-struct I2CInterface<I2C> {
+pub struct I2CInterface<I2C> {
     /// concrete I²C device implementation
     i2c: I2C,
     /// I²C device address
